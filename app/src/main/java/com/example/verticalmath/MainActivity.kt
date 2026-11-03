@@ -38,6 +38,10 @@ data class Question(
     val userP1: MutableList<Int?> = MutableList(p1D.size) { null },
     val userP2: MutableList<Int?> = MutableList(p2D.size) { null },
     val userAns: MutableList<Int?> = MutableList(ansD.size) { null },
+    // 新增：用户输入的进位
+    val userCarP1: MutableList<Int?> = MutableList(p1C.size) { null },
+    val userCarP2: MutableList<Int?> = MutableList(p2C.size) { null },
+    val userCarAdd: MutableList<Int?> = MutableList(addC.size) { null },
     var sub: Boolean = false, var cor: Boolean = false
 )
 
@@ -179,10 +183,14 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         addFixedRow(holder.box, q.a.toString().map{it.digitToInt()}, false)
         addFixedRow(holder.box, q.b.toString().map{it.digitToInt()}, true)
         
-        addCarryRow(holder.box, q.p1C, Color.RED)
+        // P1 进位框 (可编辑)
+        addCarryRowInput(holder.box, q.p1C, q.userCarP1, q.sub, Color.RED)
+        // P1 结果行 (可编辑)
         addInputRow(holder.box, q.p1D, q.userP1, q.sub, false, Color.BLACK, false)
         
-        addCarryRow(holder.box, q.p2C, Color.RED)
+        // P2 进位框 (可编辑)
+        addCarryRowInput(holder.box, q.p2C, q.userCarP2, q.sub, Color.RED)
+        // P2 结果行 (可编辑)
         addInputRow(holder.box, q.p2D, q.userP2, q.sub, false, Color.BLACK, true)
         
         val line = View(holder.itemView.context).apply { 
@@ -191,17 +199,33 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         }
         holder.box.addView(line)
         
-        addCarryRow(holder.box, q.addC, Color.BLUE)
+        // 加法进位框 (可编辑，蓝色)
+        addCarryRowInput(holder.box, q.addC, q.userCarAdd, q.sub, Color.BLUE)
+        // 最终答案行 (可编辑)
         addInputRow(holder.box, q.ansD, q.userAns, q.sub, true, Color.BLUE, false)
 
         holder.btn.isEnabled = !q.sub
         holder.btn.text = if (q.sub) "✓ 已提交" else "提交本题"
         holder.btn.setOnClickListener {
+            // 检查是否填写完整（包括计算的输入行）
             if (q.userP1.contains(null) || q.userAns.contains(null)) {
-                Toast.makeText(it.context, "请填写完整", Toast.LENGTH_SHORT).show()
+                Toast.makeText(it.context, "请填写完整计算过程和最终答案", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            q.cor = (q.userP1 == q.p1D && q.userAns == q.ansD)
+            // 严谨对错判定：过程必须对，最终答案也必须对
+            var okP1 = true
+            q.userP1.forEachIndexed { i, v -> if (v != q.p1D[i]) okP1 = false }
+            
+            var okP2 = true
+            q.userP2.forEachIndexed { i, v -> 
+                if (i == q.p2D.size - 1 && q.p2D[i] == 0) return@forEachIndexed
+                if (v != q.p2D[i]) okP2 = false 
+            }
+            
+            var okAns = true
+            q.userAns.forEachIndexed { i, v -> if (v != q.ansD[i]) okAns = false }
+
+            q.cor = okP1 && okP2 && okAns
             q.sub = true
             onStat(q.cor)
             notifyItemChanged(pos)
@@ -209,6 +233,7 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         }
     }
     
+    // 只读数字行
     private fun addFixedRow(parent: LinearLayout, digits: List<Int>, isOp: Boolean) {
         val row = LinearLayout(parent.context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
         if (isOp) row.addView(TextView(parent.context).apply { text="×"; textSize=20f; setPadding(24,0,24,0) })
@@ -216,19 +241,36 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         parent.addView(row)
     }
 
-    private fun addCarryRow(parent: LinearLayout, carries: List<Int>, textColor: Int) {
+    // 进位框输入行 (新增加)
+    private fun addCarryRowInput(parent: LinearLayout, correctCarries: List<Int>, userCarries: MutableList<Int?>, sub: Boolean, textColor: Int) {
         val row = LinearLayout(parent.context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
-        carries.forEach { 
-            row.addView(TextView(parent.context).apply { 
-                text = if(it == 0) "" else it.toString()
-                textSize = 14f; gravity = Gravity.CENTER; width = 100
+        correctCarries.forEachIndexed { i, _ ->
+            val et = EditText(parent.context).apply {
+                inputType = InputType.TYPE_NULL
+                textSize = 14f; width = 100; gravity = Gravity.CENTER
+                isEnabled = !sub
                 setTextColor(textColor)
-                setPadding(0, 0, 0, 4)
-            }) 
+                // 设置成透明/无边框稍微小一点
+                setBackgroundResource(android.R.drawable.editbox_background_normal)
+                // 限制高度
+                layoutParams = LinearLayout.LayoutParams(100, 80)
+                if (sub) setText(correctCarries[i].toString()) // 提交后显示正确答案
+                else if (userCarries[i] != null) setText(userCarries[i].toString())
+
+                setOnFocusChangeListener { _, hasFocus ->
+                    if (hasFocus) { 
+                        activeCell = this
+                        activeList = userCarries
+                        activeIndex = i 
+                    }
+                }
+            }
+            row.addView(et)
         }
         parent.addView(row)
     }
 
+    // 数字输入行 (原版)
     private fun addInputRow(parent: LinearLayout, digits: List<Int>, userList: MutableList<Int?>, sub: Boolean, isAns: Boolean, textColor: Int, isP2: Boolean) {
         val row = LinearLayout(parent.context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
         digits.forEachIndexed { i, digit ->
@@ -237,13 +279,17 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
                 row.addView(TextView(parent.context).apply {
                     text = "0"; textSize = 24f; width = 100; gravity = Gravity.CENTER
                     setTextColor(Color.GRAY); setBackgroundResource(android.R.drawable.editbox_background_normal)
+                    layoutParams = LinearLayout.LayoutParams(100, 120)
                 })
             } else {
                 val et = EditText(parent.context).apply {
                     inputType = InputType.TYPE_NULL; textSize = 24f; width = 100; gravity = Gravity.CENTER
                     isEnabled = !sub; setTextColor(textColor); setBackgroundResource(android.R.drawable.editbox_background_normal)
+                    layoutParams = LinearLayout.LayoutParams(100, 120)
+                    
                     if (sub) setText(if (isAns) digits[i].toString() else userList[i]?.toString() ?: "")
                     else if (userList[i] != null) setText(userList[i].toString())
+                    
                     setOnFocusChangeListener { _, hasFocus ->
                         if (hasFocus) { activeCell = this; activeList = userList; activeIndex = i }
                     }
@@ -298,7 +344,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         
-        // 这里已经彻底改成了基础写法，不再需要任何额外的 ktx 导入
         vm = ViewModelProvider(this)[MathViewModel::class.java]
         
         val rv = findViewById<RecyclerView>(R.id.recyclerView)
