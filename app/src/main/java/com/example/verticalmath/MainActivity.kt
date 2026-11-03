@@ -73,8 +73,18 @@ class MathViewModel(application: Application) : AndroidViewModel(application) {
             
             val p1C = calcC(a, b1)
             val p2C = calcC(a, b2)
-            val addC = calcAddC(p1D, p2D)
             
+            // 计算加法进位 (长度严格与最终结果一致)
+            val len = ansD.size
+            var c = 0; val res = mutableListOf<Int>()
+            for (j in 0 until len) {
+                val v1 = if (j < p1D.size) p1D[p1D.size - 1 - j] else 0
+                val v2 = if (j < p2D.size) p2D[p2D.size - 1 - j] else 0
+                c = (v1 + v2 + c) / 10
+                res.add(c)
+            }
+            val addC = res.reversed()
+
             list.add(Question(a, b, p1D, p1C, p2D, p2C, addC, ansD))
         }
         qs.value = list
@@ -87,17 +97,6 @@ class MathViewModel(application: Application) : AndroidViewModel(application) {
             c = s / 10; res.add(c)
         }
         while(res.size < a.toString().length) res.add(0)
-        return res.reversed()
-    }
-    
-    private fun calcAddC(p1: List<Int>, p2: List<Int>): List<Int> {
-        val len = max(p1.size, p2.size)
-        var c = 0; val res = mutableListOf<Int>()
-        for (i in 0 until len) {
-            val v1 = if (i < p1.size) p1[p1.size - 1 - i] else 0
-            val v2 = if (i < p2.size) p2[p2.size - 1 - i] else 0
-            c = (v1 + v2 + c) / 10; res.add(c)
-        }
         return res.reversed()
     }
 
@@ -167,10 +166,11 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
     var activeList: MutableList<Int?>? = null
     var activeIndex: Int = -1
 
-    // 尺寸设定
-    val cellWidth = 125
-    val cellHeight = 140
-    val carryHeight = 85
+    // 定义基础尺寸
+    val cellWidth = 110
+    val cellHeight = 120
+    val carryHeight = 70
+    val gap = 6 // 调整间距让格子更清晰
 
     inner class VH(v: View) : RecyclerView.ViewHolder(v) {
         val title: TextView = v.findViewById(R.id.tvTitle)
@@ -185,21 +185,27 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         holder.title.text = "${pos+1}. ${q.a} × ${q.b}"
         holder.box.removeAllViews()
         
-        addFixedRow(holder.box, q.a.toString().map{it.digitToInt()}, false)
-        addFixedRow(holder.box, q.b.toString().map{it.digitToInt()}, true)
+        // 计算出整个竖式的最大列数（以结果位数为准）
+        val maxCols = q.ansD.size
+
+        addFixedRow(holder.box, q.a.toString().map{it.digitToInt()}, false, maxCols)
+        addFixedRow(holder.box, q.b.toString().map{it.digitToInt()}, true, maxCols)
         
         addLine(holder.box)
 
-        addCarryRowInput(holder.box, q.p1C, q.userCarP1, q.sub, Color.RED)
-        addInputRow(holder.box, q.p1D, q.userP1, q.sub, false, Color.BLACK, false)
+        // P1: 乘数个位相乘
+        addCarryRowInput(holder.box, q.p1C, q.userCarP1, q.sub, Color.RED, maxCols)
+        addInputRow(holder.box, q.p1D, q.userP1, q.sub, false, Color.BLACK, false, maxCols)
         
-        addCarryRowInput(holder.box, q.p2C, q.userCarP2, q.sub, Color.RED)
-        addInputRow(holder.box, q.p2D, q.userP2, q.sub, false, Color.BLACK, true)
+        // P2: 乘数十位相乘
+        addCarryRowInput(holder.box, q.p2C, q.userCarP2, q.sub, Color.RED, maxCols)
+        addInputRow(holder.box, q.p2D, q.userP2, q.sub, false, Color.BLACK, true, maxCols)
         
         addLine(holder.box)
         
-        addCarryRowInput(holder.box, q.addC, q.userCarAdd, q.sub, Color.BLUE)
-        addInputRow(holder.box, q.ansD, q.userAns, q.sub, true, Color.BLUE, false)
+        // 加法进位框与最终结果
+        addCarryRowInput(holder.box, q.addC, q.userCarAdd, q.sub, Color.BLUE, maxCols)
+        addInputRow(holder.box, q.ansD, q.userAns, q.sub, true, Color.BLUE, false, maxCols)
 
         holder.btn.isEnabled = !q.sub
         holder.btn.text = if (q.sub) "✓ 已提交" else "提交本题"
@@ -236,33 +242,47 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         parent.addView(line)
     }
 
-    private fun addFixedRow(parent: LinearLayout, digits: List<Int>, isOp: Boolean) {
-        val row = LinearLayout(parent.context).apply { 
+    // 构建严格对齐的容器行
+    private fun createAlignedRow(context: Context, maxCols: Int, contentCols: Int): LinearLayout {
+        val row = LinearLayout(context).apply { 
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
+        // 左侧补齐空白列，确保右侧严格对齐
+        for (i in 0 until (maxCols - contentCols)) {
+            val blank = View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(cellWidth + gap, ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+            row.addView(blank)
+        }
+        return row
+    }
+
+    private fun addFixedRow(parent: LinearLayout, digits: List<Int>, isOp: Boolean, maxCols: Int) {
+        // 如果有乘号，占用一列宽度
+        val opCols = if (isOp) 1 else 0
+        val row = createAlignedRow(parent.context, maxCols, digits.size + opCols)
+        
         if (isOp) {
             row.addView(TextView(parent.context).apply { 
                 text="×"
                 textSize = 32f
                 gravity = Gravity.CENTER
-                setPadding(24,0,24,0) 
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, cellHeight)
+                layoutParams = LinearLayout.LayoutParams(cellWidth + gap, cellHeight)
             })
         }
         digits.forEach { 
             row.addView(TextView(parent.context).apply { 
                 text=it.toString()
-                textSize = 36f // 大字体
+                textSize = 36f
                 gravity = Gravity.CENTER
-                layoutParams = LinearLayout.LayoutParams(cellWidth, cellHeight)
+                layoutParams = LinearLayout.LayoutParams(cellWidth + gap, cellHeight)
             }) 
         }
         parent.addView(row)
     }
 
-    // 自定义圆圈背景，让输入框看起来更明显
     private fun getInputBackground(color: Int, isCarry: Boolean): GradientDrawable {
         return GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
@@ -272,21 +292,18 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         }
     }
 
-    private fun addCarryRowInput(parent: LinearLayout, correctCarries: List<Int>, userCarries: MutableList<Int?>, sub: Boolean, textColor: Int) {
-        val row = LinearLayout(parent.context).apply { 
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.END
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        }
+    private fun addCarryRowInput(parent: LinearLayout, correctCarries: List<Int>, userCarries: MutableList<Int?>, sub: Boolean, textColor: Int, maxCols: Int) {
+        val row = createAlignedRow(parent.context, maxCols, correctCarries.size)
         correctCarries.forEachIndexed { i, _ ->
             val et = EditText(parent.context).apply {
                 inputType = InputType.TYPE_NULL
-                textSize = 22f
+                textSize = 20f
                 gravity = Gravity.CENTER
                 isEnabled = !sub
                 setTextColor(textColor)
-                setPadding(0,0,0,0) // 去除内部边距，防止被裁切
-                layoutParams = LinearLayout.LayoutParams(cellWidth, carryHeight)
+                setPadding(0,0,0,0) 
+                // 设置内边距，防止挤压
+                layoutParams = LinearLayout.LayoutParams(cellWidth, carryHeight).apply { setMargins(gap/2, 0, gap/2, 0) }
                 background = getInputBackground(Color.parseColor("#CBD5E1"), true)
                 
                 if (sub) setText(correctCarries[i].toString()) 
@@ -308,12 +325,8 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         parent.addView(row)
     }
 
-    private fun addInputRow(parent: LinearLayout, digits: List<Int>, userList: MutableList<Int?>, sub: Boolean, isAns: Boolean, textColor: Int, isP2: Boolean) {
-        val row = LinearLayout(parent.context).apply { 
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.END
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        }
+    private fun addInputRow(parent: LinearLayout, digits: List<Int>, userList: MutableList<Int?>, sub: Boolean, isAns: Boolean, textColor: Int, isP2: Boolean, maxCols: Int) {
+        val row = createAlignedRow(parent.context, maxCols, digits.size)
         digits.forEachIndexed { i, digit ->
             val isFixedZero = isP2 && (i == digits.size - 1) && (digit == 0)
             if (isFixedZero) {
@@ -322,7 +335,7 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
                     textSize = 36f
                     gravity = Gravity.CENTER
                     setTextColor(Color.GRAY)
-                    layoutParams = LinearLayout.LayoutParams(cellWidth, cellHeight)
+                    layoutParams = LinearLayout.LayoutParams(cellWidth, cellHeight).apply { setMargins(gap/2, 0, gap/2, 0) }
                     background = getInputBackground(Color.parseColor("#E2E8F0"), false)
                 })
             } else {
@@ -332,8 +345,8 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
                     gravity = Gravity.CENTER
                     isEnabled = !sub
                     setTextColor(textColor)
-                    setPadding(0,0,0,0) // 去除内部边距，防止被裁切
-                    layoutParams = LinearLayout.LayoutParams(cellWidth, cellHeight)
+                    setPadding(0,0,0,0) 
+                    layoutParams = LinearLayout.LayoutParams(cellWidth, cellHeight).apply { setMargins(gap/2, 0, gap/2, 0) }
                     background = getInputBackground(Color.parseColor("#CBD5E1"), false)
                     
                     if (sub) setText(if (isAns) digits[i].toString() else userList[i]?.toString() ?: "")
