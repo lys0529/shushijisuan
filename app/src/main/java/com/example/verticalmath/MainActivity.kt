@@ -3,6 +3,7 @@ package com.example.verticalmath
 import android.app.Application
 import android.content.Context
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
@@ -166,6 +167,11 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
     var activeList: MutableList<Int?>? = null
     var activeIndex: Int = -1
 
+    // 尺寸设定
+    val cellWidth = 125
+    val cellHeight = 140
+    val carryHeight = 85
+
     inner class VH(v: View) : RecyclerView.ViewHolder(v) {
         val title: TextView = v.findViewById(R.id.tvTitle)
         val box: LinearLayout = v.findViewById(R.id.llVerticalContainer)
@@ -179,25 +185,21 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         holder.title.text = "${pos+1}. ${q.a} × ${q.b}"
         holder.box.removeAllViews()
         
-        // 动态调整高度，让数字看得清
-        val cellWidth = 120
-        val cellHeight = 140
-
-        addFixedRow(holder.box, q.a.toString().map{it.digitToInt()}, false, cellWidth, cellHeight)
-        addFixedRow(holder.box, q.b.toString().map{it.digitToInt()}, true, cellWidth, cellHeight)
+        addFixedRow(holder.box, q.a.toString().map{it.digitToInt()}, false)
+        addFixedRow(holder.box, q.b.toString().map{it.digitToInt()}, true)
         
         addLine(holder.box)
 
-        addCarryRowInput(holder.box, q.p1C, q.userCarP1, q.sub, Color.RED, cellWidth)
-        addInputRow(holder.box, q.p1D, q.userP1, q.sub, false, Color.BLACK, false, cellWidth, cellHeight)
+        addCarryRowInput(holder.box, q.p1C, q.userCarP1, q.sub, Color.RED)
+        addInputRow(holder.box, q.p1D, q.userP1, q.sub, false, Color.BLACK, false)
         
-        addCarryRowInput(holder.box, q.p2C, q.userCarP2, q.sub, Color.RED, cellWidth)
-        addInputRow(holder.box, q.p2D, q.userP2, q.sub, false, Color.BLACK, true, cellWidth, cellHeight)
+        addCarryRowInput(holder.box, q.p2C, q.userCarP2, q.sub, Color.RED)
+        addInputRow(holder.box, q.p2D, q.userP2, q.sub, false, Color.BLACK, true)
         
         addLine(holder.box)
         
-        addCarryRowInput(holder.box, q.addC, q.userCarAdd, q.sub, Color.BLUE, cellWidth)
-        addInputRow(holder.box, q.ansD, q.userAns, q.sub, true, Color.BLUE, false, cellWidth, cellHeight)
+        addCarryRowInput(holder.box, q.addC, q.userCarAdd, q.sub, Color.BLUE)
+        addInputRow(holder.box, q.ansD, q.userAns, q.sub, true, Color.BLUE, false)
 
         holder.btn.isEnabled = !q.sub
         holder.btn.text = if (q.sub) "✓ 已提交" else "提交本题"
@@ -228,38 +230,49 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
     
     private fun addLine(parent: LinearLayout) {
         val line = View(parent.context).apply { 
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 4).apply { setMargins(0, 8, 0, 8) }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 4).apply { setMargins(0, 10, 0, 10) }
             setBackgroundColor(Color.parseColor("#64748B")) 
         }
         parent.addView(line)
     }
 
-    private fun addFixedRow(parent: LinearLayout, digits: List<Int>, isOp: Boolean, width: Int, height: Int) {
+    private fun addFixedRow(parent: LinearLayout, digits: List<Int>, isOp: Boolean) {
         val row = LinearLayout(parent.context).apply { 
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 0, 0, 4) }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
         if (isOp) {
             row.addView(TextView(parent.context).apply { 
                 text="×"
-                textSize = 28f
-                gravity = Gravity.CENTER_VERTICAL
+                textSize = 32f
+                gravity = Gravity.CENTER
                 setPadding(24,0,24,0) 
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, cellHeight)
             })
         }
         digits.forEach { 
             row.addView(TextView(parent.context).apply { 
-                text = it.toString()
-                textSize = 32f // 明确设置字体大小
+                text=it.toString()
+                textSize = 36f // 大字体
                 gravity = Gravity.CENTER
-                layoutParams = LinearLayout.LayoutParams(width, height)
+                layoutParams = LinearLayout.LayoutParams(cellWidth, cellHeight)
             }) 
         }
         parent.addView(row)
     }
 
-    private fun addCarryRowInput(parent: LinearLayout, correctCarries: List<Int>, userCarries: MutableList<Int?>, sub: Boolean, textColor: Int, width: Int) {
+    // 自定义圆圈背景，让输入框看起来更明显
+    private fun getInputBackground(color: Int, isCarry: Boolean): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 12f
+            setStroke(3, color)
+            setColor(if(isCarry) Color.parseColor("#F8FAFC") else Color.WHITE)
+        }
+    }
+
+    private fun addCarryRowInput(parent: LinearLayout, correctCarries: List<Int>, userCarries: MutableList<Int?>, sub: Boolean, textColor: Int) {
         val row = LinearLayout(parent.context).apply { 
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
@@ -268,12 +281,14 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         correctCarries.forEachIndexed { i, _ ->
             val et = EditText(parent.context).apply {
                 inputType = InputType.TYPE_NULL
-                textSize = 18f
+                textSize = 22f
                 gravity = Gravity.CENTER
                 isEnabled = !sub
                 setTextColor(textColor)
-                layoutParams = LinearLayout.LayoutParams(width, 80)
-                setBackgroundColor(Color.parseColor("#F1F5F9"))
+                setPadding(0,0,0,0) // 去除内部边距，防止被裁切
+                layoutParams = LinearLayout.LayoutParams(cellWidth, carryHeight)
+                background = getInputBackground(Color.parseColor("#CBD5E1"), true)
+                
                 if (sub) setText(correctCarries[i].toString()) 
                 else if (userCarries[i] != null) setText(userCarries[i].toString())
 
@@ -282,6 +297,9 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
                         activeCell = this
                         activeList = userCarries
                         activeIndex = i 
+                        background = getInputBackground(Color.parseColor("#4F46E5"), true)
+                    } else {
+                        background = getInputBackground(Color.parseColor("#CBD5E1"), true)
                     }
                 }
             }
@@ -290,38 +308,46 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         parent.addView(row)
     }
 
-    private fun addInputRow(parent: LinearLayout, digits: List<Int>, userList: MutableList<Int?>, sub: Boolean, isAns: Boolean, textColor: Int, isP2: Boolean, width: Int, height: Int) {
+    private fun addInputRow(parent: LinearLayout, digits: List<Int>, userList: MutableList<Int?>, sub: Boolean, isAns: Boolean, textColor: Int, isP2: Boolean) {
         val row = LinearLayout(parent.context).apply { 
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 0, 0, 4) }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
         digits.forEachIndexed { i, digit ->
             val isFixedZero = isP2 && (i == digits.size - 1) && (digit == 0)
             if (isFixedZero) {
                 row.addView(TextView(parent.context).apply {
                     text = "0"
-                    textSize = 32f
+                    textSize = 36f
                     gravity = Gravity.CENTER
                     setTextColor(Color.GRAY)
-                    setBackgroundResource(android.R.drawable.editbox_background_normal)
-                    layoutParams = LinearLayout.LayoutParams(width, height)
+                    layoutParams = LinearLayout.LayoutParams(cellWidth, cellHeight)
+                    background = getInputBackground(Color.parseColor("#E2E8F0"), false)
                 })
             } else {
                 val et = EditText(parent.context).apply {
                     inputType = InputType.TYPE_NULL
-                    textSize = 32f
+                    textSize = 36f
                     gravity = Gravity.CENTER
                     isEnabled = !sub
                     setTextColor(textColor)
-                    setBackgroundResource(android.R.drawable.editbox_background_normal)
-                    layoutParams = LinearLayout.LayoutParams(width, height)
+                    setPadding(0,0,0,0) // 去除内部边距，防止被裁切
+                    layoutParams = LinearLayout.LayoutParams(cellWidth, cellHeight)
+                    background = getInputBackground(Color.parseColor("#CBD5E1"), false)
                     
                     if (sub) setText(if (isAns) digits[i].toString() else userList[i]?.toString() ?: "")
                     else if (userList[i] != null) setText(userList[i].toString())
                     
                     setOnFocusChangeListener { _, hasFocus ->
-                        if (hasFocus) { activeCell = this; activeList = userList; activeIndex = i }
+                        if (hasFocus) { 
+                            activeCell = this
+                            activeList = userList
+                            activeIndex = i 
+                            background = getInputBackground(Color.parseColor("#4F46E5"), false)
+                        } else {
+                            background = getInputBackground(Color.parseColor("#CBD5E1"), false)
+                        }
                     }
                 }
                 row.addView(et)
