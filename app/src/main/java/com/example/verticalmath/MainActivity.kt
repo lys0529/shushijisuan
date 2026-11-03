@@ -327,14 +327,12 @@ class MainActivity : AppCompatActivity() {
         vm.todayTotal.observe(this) { updateStatsUI() }
         vm.todayCorrect.observe(this) { updateStatsUI() }
 
-        // 重新出题按钮（右上角）
         btnReset.setOnClickListener {
             btnSubmitAll.isEnabled = false
             btnSubmitAll.text = "提交全部"
             vm.gen()
         }
 
-        // 自定义键盘绑定
         val keys = mapOf(
             findViewById<Button>(R.id.btn0) to 0, findViewById<Button>(R.id.btn1) to 1,
             findViewById<Button>(R.id.btn2) to 2, findViewById<Button>(R.id.btn3) to 3,
@@ -345,7 +343,6 @@ class MainActivity : AppCompatActivity() {
         for ((b, num) in keys) b.setOnClickListener { adapter.typeNumber(num) }
         findViewById<Button>(R.id.btnClear).setOnClickListener { adapter.clearNumber() }
 
-        // 提交全部（结算）
         btnSubmitAll.setOnClickListener {
             val list = vm.qs.value ?: return@setOnClickListener
             val correct = list.count { it.cor }
@@ -363,7 +360,6 @@ class MainActivity : AppCompatActivity() {
                 .show()
         }
 
-        // 查看错题本
         btnWrong.setOnClickListener {
             val wrongs = vm.getWrongBook()
             if (wrongs.isEmpty()) {
@@ -379,7 +375,6 @@ class MainActivity : AppCompatActivity() {
                 .show()
         }
 
-        // 查看详细统计
         btnStats.setOnClickListener {
             val t = vm.todayTotal.value ?: 0
             val c = vm.todayCorrect.value ?: 0
