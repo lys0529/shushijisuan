@@ -180,26 +180,24 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         holder.box.removeAllViews()
         
         // 动态调整高度，让数字看得清
-        val textSize = 32f
         val cellWidth = 120
         val cellHeight = 140
 
-        addFixedRow(holder.box, q.a.toString().map{it.digitToInt()}, false, textSize, cellWidth, cellHeight)
-        addFixedRow(holder.box, q.b.toString().map{it.digitToInt()}, true, textSize, cellWidth, cellHeight)
+        addFixedRow(holder.box, q.a.toString().map{it.digitToInt()}, false, cellWidth, cellHeight)
+        addFixedRow(holder.box, q.b.toString().map{it.digitToInt()}, true, cellWidth, cellHeight)
         
-        // 补上你提到的遗漏的横线
         addLine(holder.box)
 
         addCarryRowInput(holder.box, q.p1C, q.userCarP1, q.sub, Color.RED, cellWidth)
-        addInputRow(holder.box, q.p1D, q.userP1, q.sub, false, Color.BLACK, false, textSize, cellWidth, cellHeight)
+        addInputRow(holder.box, q.p1D, q.userP1, q.sub, false, Color.BLACK, false, cellWidth, cellHeight)
         
         addCarryRowInput(holder.box, q.p2C, q.userCarP2, q.sub, Color.RED, cellWidth)
-        addInputRow(holder.box, q.p2D, q.userP2, q.sub, false, Color.BLACK, true, textSize, cellWidth, cellHeight)
+        addInputRow(holder.box, q.p2D, q.userP2, q.sub, false, Color.BLACK, true, cellWidth, cellHeight)
         
         addLine(holder.box)
         
         addCarryRowInput(holder.box, q.addC, q.userCarAdd, q.sub, Color.BLUE, cellWidth)
-        addInputRow(holder.box, q.ansD, q.userAns, q.sub, true, Color.BLUE, false, textSize, cellWidth, cellHeight)
+        addInputRow(holder.box, q.ansD, q.userAns, q.sub, true, Color.BLUE, false, cellWidth, cellHeight)
 
         holder.btn.isEnabled = !q.sub
         holder.btn.text = if (q.sub) "✓ 已提交" else "提交本题"
@@ -236,7 +234,7 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         parent.addView(line)
     }
 
-    private fun addFixedRow(parent: LinearLayout, digits: List<Int>, isOp: Boolean, textSize: Float, width: Int, height: Int) {
+    private fun addFixedRow(parent: LinearLayout, digits: List<Int>, isOp: Boolean, width: Int, height: Int) {
         val row = LinearLayout(parent.context).apply { 
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
@@ -244,14 +242,16 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         }
         if (isOp) {
             row.addView(TextView(parent.context).apply { 
-                text="×"; textSize=28f; gravity = Gravity.CENTER_VERTICAL
+                text="×"
+                textSize = 28f
+                gravity = Gravity.CENTER_VERTICAL
                 setPadding(24,0,24,0) 
             })
         }
         digits.forEach { 
             row.addView(TextView(parent.context).apply { 
-                text=it.toString()
-                this.textSize = textSize
+                text = it.toString()
+                textSize = 32f // 明确设置字体大小
                 gravity = Gravity.CENTER
                 layoutParams = LinearLayout.LayoutParams(width, height)
             }) 
@@ -273,7 +273,6 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
                 isEnabled = !sub
                 setTextColor(textColor)
                 layoutParams = LinearLayout.LayoutParams(width, 80)
-                // 用浅色背景区分进位框
                 setBackgroundColor(Color.parseColor("#F1F5F9"))
                 if (sub) setText(correctCarries[i].toString()) 
                 else if (userCarries[i] != null) setText(userCarries[i].toString())
@@ -291,7 +290,7 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
         parent.addView(row)
     }
 
-    private fun addInputRow(parent: LinearLayout, digits: List<Int>, userList: MutableList<Int?>, sub: Boolean, isAns: Boolean, textColor: Int, isP2: Boolean, textSize: Float, width: Int, height: Int) {
+    private fun addInputRow(parent: LinearLayout, digits: List<Int>, userList: MutableList<Int?>, sub: Boolean, isAns: Boolean, textColor: Int, isP2: Boolean, width: Int, height: Int) {
         val row = LinearLayout(parent.context).apply { 
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
@@ -302,7 +301,7 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
             if (isFixedZero) {
                 row.addView(TextView(parent.context).apply {
                     text = "0"
-                    this.textSize = textSize
+                    textSize = 32f
                     gravity = Gravity.CENTER
                     setTextColor(Color.GRAY)
                     setBackgroundResource(android.R.drawable.editbox_background_normal)
@@ -311,7 +310,7 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
             } else {
                 val et = EditText(parent.context).apply {
                     inputType = InputType.TYPE_NULL
-                    this.textSize = textSize
+                    textSize = 32f
                     gravity = Gravity.CENTER
                     isEnabled = !sub
                     setTextColor(textColor)
