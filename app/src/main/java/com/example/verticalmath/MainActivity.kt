@@ -14,17 +14,18 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 import kotlin.math.max
 import kotlin.random.Random
 
@@ -290,12 +291,15 @@ class QAdapter(val list: List<Question>, val onUpdate: () -> Unit, val onStat: (
 
 // ================= Activity =================
 class MainActivity : AppCompatActivity() {
-    private val vm: MathViewModel by viewModels()
+    private lateinit var vm: MathViewModel
     private lateinit var adapter: QAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        
+        // 这里已经彻底改成了基础写法，不再需要任何额外的 ktx 导入
+        vm = ViewModelProvider(this)[MathViewModel::class.java]
         
         val rv = findViewById<RecyclerView>(R.id.recyclerView)
         val btnSubmitAll = findViewById<Button>(R.id.btnSubmitAll)
